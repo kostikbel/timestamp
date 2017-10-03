@@ -32,6 +32,47 @@ struct timer_descr {
 };
 
 static bool
+timestamp_sockopt(int s, enum timer t)
+{
+	if (t == T_BINTIME) {
+		int val = 1;
+		if (setsockopt(s, SOL_SOCKET, SO_BINTIME, &val, sizeof(val))
+		    == -1) {
+			int error = errno;
+			std::cerr << "SO_BINTIME" << strerror(error) << std::endl;
+			return (false);
+		}
+		return (true);
+	}
+
+	int val = 1;
+	if (setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &val, sizeof(val)) == -1) {
+		int error = errno;
+		std::cerr << "SO_TIMESTAMP" << strerror(error) << std::endl;
+		return (false);
+	}
+	switch (t) {
+	case T_REALTIME_MICRO:
+		val = SO_TS_REALTIME_MICRO;
+		break;
+	case T_REALTIME:
+		val = SO_TS_REALTIME;
+		break;
+	case T_MONOTONIC:
+		val = SO_TS_MONOTONIC;
+		break;
+	default:
+		return (false);
+	}
+	if (setsockopt(s, SOL_SOCKET, SO_TS_CLOCK, &val, sizeof(val)) == -1) {
+		int error = errno;
+		std::cerr << "SO_TS_CLOCK" << strerror(error) << std::endl;
+		return (false);
+	}
+	return (true);
+}
+
+static bool
 do_server(const struct addrinfo *ai, enum timer timer)
 {
 	int error;
@@ -48,6 +89,8 @@ do_server(const struct addrinfo *ai, enum timer timer)
 		std::cerr << "bind: " << strerror(error) << std::endl;
 		return (false);
 	}
+	if (!timestamp_sockopt(s, timer))
+		return (false);
 	
 	return (true);
 }
@@ -69,6 +112,8 @@ do_client(const struct addrinfo *ai, enum timer timer)
 		std::cerr << "bind: " << strerror(error) << std::endl;
 		return (false);
 	}
+	if (!timestamp_sockopt(s, timer))
+		return (false);
 	
 	return (true);
 }
