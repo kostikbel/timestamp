@@ -33,13 +33,43 @@ struct timer_descr {
 static bool
 do_server(const struct addrinfo *ai, enum timer timer)
 {
-	return (false);
+	int error;
+
+	int s = socket(ai->ai_family, SOCK_DGRAM, ai->ai_protocol);
+	if (s == -1) {
+		error = errno;
+		std::cerr << "socket: " << strerror(error) << std::endl;
+		return (false);
+	}
+	if (bind(s, ai->ai_addr, ai->ai_addrlen) == -1) {
+		error = errno;
+		close(s);
+		std::cerr << "bind: " << strerror(error) << std::endl;
+		return (false);
+	}
+	
+	return (true);
 }
 
 static bool
 do_client(const struct addrinfo *ai, enum timer timer)
 {
-	return (false);
+	int error;
+
+	int s = socket(ai->ai_family, SOCK_DGRAM, ai->ai_protocol);
+	if (s == -1) {
+		error = errno;
+		std::cerr << "socket: " << strerror(error) << std::endl;
+		return (false);
+	}
+	if (connect(s, ai->ai_addr, ai->ai_addrlen) == -1) {
+		error = errno;
+		close(s);
+		std::cerr << "bind: " << strerror(error) << std::endl;
+		return (false);
+	}
+	
+	return (true);
 }
 
 static void
