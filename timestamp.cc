@@ -5,6 +5,18 @@
 
 #include <iostream>
 
+static bool
+do_server(const struct addrinfo *ai)
+{
+	return (false);
+}
+
+static bool
+do_client(const struct addrinfo *ai)
+{
+	return (false);
+}
+
 enum mode {
 	M_UNKNOWN,
 	M_SERVER,
@@ -57,13 +69,28 @@ main(int argc, char *argv[])
 			    gai_strerror(error) << std::endl;
 	}
 
+	int res = 1;
 	switch (mode) {
 	case M_SERVER:
+		for (const struct addrinfo *cai = ai; cai != NULL;
+		    cai = cai->ai_next) {
+			if (do_server(cai)) {
+				res = 0;
+				break;
+			}
+		}
 		break;
 	case M_CLIENT:
+		for (const struct addrinfo *cai = ai; cai != NULL;
+		    cai = cai->ai_next) {
+			if (do_client(cai)) {
+				res = 0;
+				break;
+			}
+		}
 		break;
-	case M_UNKNOWN:
-		usage();
+	default:
 		break;
 	}
+	return (res);
 }
