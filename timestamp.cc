@@ -3,6 +3,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <netinet/in.h>
 
 #include <iostream>
 
@@ -35,7 +36,7 @@ do_server(const struct addrinfo *ai, enum timer timer)
 {
 	int error;
 
-	int s = socket(ai->ai_family, SOCK_DGRAM, ai->ai_protocol);
+	int s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 	if (s == -1) {
 		error = errno;
 		std::cerr << "socket: " << strerror(error) << std::endl;
@@ -56,7 +57,7 @@ do_client(const struct addrinfo *ai, enum timer timer)
 {
 	int error;
 
-	int s = socket(ai->ai_family, SOCK_DGRAM, ai->ai_protocol);
+	int s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 	if (s == -1) {
 		error = errno;
 		std::cerr << "socket: " << strerror(error) << std::endl;
@@ -127,7 +128,14 @@ main(int argc, char *argv[])
 		usage();
 
 	if (hostname != NULL || servname != NULL) {
-		error = getaddrinfo(hostname, servname, NULL, &ai);
+		struct addrinfo hints{};
+
+		hints.ai_socktype = SOCK_DGRAM;
+		hints.ai_protocol = IPPROTO_UDP;
+		hints.ai_flags = AI_ADDRCONFIG;
+		if (mode == M_SERVER)
+			hints.ai_flags |= AI_PASSIVE;
+		error = getaddrinfo(hostname, servname, &hints, &ai);
 		if (error != 0)
 			std::cerr << "Can't resolve address: " <<
 			    gai_strerror(error) << std::endl;
