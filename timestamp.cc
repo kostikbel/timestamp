@@ -6,6 +6,7 @@
 #include <iostream>
 
 enum mode {
+	M_UNKNOWN,
 	M_SERVER,
 	M_CLIENT
 };
@@ -13,15 +14,17 @@ enum mode {
 static void
 usage()
 {
-	std::cerr << "Usage: timestamp [-cs] [-h address] [-p port] [-t timer]\n";
+	std::cerr << "Usage: timestamp -c|-s [-h address] [-p port] [-t timer]\n";
 	exit(1);
 }
 
 int
 main(int argc, char *argv[])
 {
-	int c;
-	enum mode mode;
+	const char *hostname = NULL, *servname = NULL;
+	struct addrinfo *ai = NULL;
+	int c, error;
+	enum mode mode = M_UNKNOWN;
 
 	while ((c = getopt(argc, argv, "ch:t:sp:")) != -1) {
 		switch (c) {
@@ -32,10 +35,10 @@ main(int argc, char *argv[])
 			mode = M_SERVER;
 			break;
 		case 'h':
-			// XXX
+			hostname = optarg;
 			break;
 		case 'p':
-			// XXX
+			servname = optarg;
 			break;
 		case '?':
 		case ':':
@@ -44,10 +47,23 @@ main(int argc, char *argv[])
 		}
 	}
 
+	if (mode == M_UNKNOWN)
+		usage();
+
+	if (hostname != NULL || servname != NULL) {
+		error = getaddrinfo(hostname, servname, NULL, &ai);
+		if (error != 0)
+			std::cerr << "Can't resolve address: " <<
+			    gai_strerror(error) << std::endl;
+	}
+
 	switch (mode) {
 	case M_SERVER:
 		break;
 	case M_CLIENT:
+		break;
+	case M_UNKNOWN:
+		usage();
 		break;
 	}
 }
