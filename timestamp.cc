@@ -256,12 +256,11 @@ server_loop_step(int s, enum timer timer)
 }
 
 static void
-client_send_loop_step(int s, enum timer timer, const struct addrinfo *cai)
+client_send_loop_step(int s, enum timer timer)
 {
 	struct packet p{};
 
-	int error = send_packet(s, cai->ai_addr, cai->ai_addrlen, timer,
-	    &p, &p.clnt_snd);
+	int error = send_packet(s, NULL, 0, timer, &p, &p.clnt_snd);
 	if (error == -1) {
 		error = errno;
 		std::cerr << "send_packet: " << strerror(error) << std::endl;
@@ -294,10 +293,10 @@ server_loop(int s, enum timer timer)
 }
 
 static void
-client_send_loop(int s, enum timer timer, const struct addrinfo *cai)
+client_send_loop(int s, enum timer timer)
 {
 	for (;;)
-		client_send_loop_step(s, timer, cai);
+		client_send_loop_step(s, timer);
 }
 
 static void
@@ -308,9 +307,9 @@ client_receive_loop(int s)
 }
 
 static void
-client_loop(int s, enum timer timer, const struct addrinfo *cai)
+client_loop(int s, enum timer timer)
 {
-	std::thread thread(client_send_loop, s, timer, cai);
+	std::thread thread(client_send_loop, s, timer);
 	client_receive_loop(s);
 }
 
@@ -365,7 +364,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (mode == M_UNKNOWN)
+	if (mode == M_UNKNOWN || timer == T_UNKNOWN)
 		usage();
 
 	if (hostname != NULL || servname != NULL) {
@@ -404,18 +403,19 @@ main(int argc, char *argv[])
 	default:
 		break;
 	}
-	if (res != 0)
+	if (res != 0) {
+		std::cerr << "cannot select address" << std::endl;
 		return (res);
+	}
 
 	switch (mode) {
 	case M_SERVER:
 		server_loop(s, timer);
 		break;
 	case M_CLIENT:
-		client_loop(s, timer, cai);
+		client_loop(s, timer);
 		break;
 	default:
 		break;
 	}
-	return (0);
 }
