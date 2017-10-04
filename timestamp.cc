@@ -212,17 +212,22 @@ send_packet(int s, struct sockaddr *sa, socklen_t sa_len, enum timer timer,
 
 	switch (timer) {
 	case T_BINTIME:
-		// XXX
+		ts->timer = T_BINTIME;
+		timeval2bintime(&tv, &ts->t_b);
 		break;
 	case T_REALTIME_MICRO:
 		ts->timer = T_REALTIME_MICRO;
 		ts->t_v = tv;
 		break;
 	case T_REALTIME:
-		// XXX
+		ts->timer = T_REALTIME;
+		TIMEVAL_TO_TIMESPEC(&tv, &ts->t_s);
 		break;
 	case T_MONOTONIC:
 		// XXX
+		ts->timer = T_MONOTONIC;
+		TIMEVAL_TO_TIMESPEC(&tv, &ts->t_s);
+		break;
 		break;
 	default:
 		break;
