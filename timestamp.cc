@@ -136,36 +136,31 @@ setup_client(const struct addrinfo *ai, enum timer timer, int& s)
 	return (true);
 }
 
-static void
-server_loop_step(int s)
+static int
+recv_packet(int s, struct packet *p, struct sockaddr *sa, struct ts *ts)
 {
 	struct msghdr m{};
 	struct iovec v[1];
-	struct packet p;
 	char control_buf[1024];
-	struct sockaddr sa;
 
-	v[0].iov_base = &p;
-	v[0].iov_len = sizeof(p);
-	m.msg_name = &sa;
-	m.msg_namelen = sizeof(sa);
+	v[0].iov_base = p;
+	v[0].iov_len = sizeof(*p);
+	m.msg_name = sa;
+	m.msg_namelen = sizeof(*sa);
 	m.msg_iov = v;
 	m.msg_iovlen = nitems(v);
 	m.msg_control = control_buf;
 	m.msg_controllen = sizeof(control_buf);
 	int error = recvmsg(s, &m, 0);
-	if (error == -1) {
-		error = errno;
-		std::cerr << "recvmsg: " << strerror(error) << std::endl;
-		return;
-	}
+	if (error == -1)
+		return (error);
 	if ((m.msg_flags & MSG_TRUNC) != 0) {
 		std::cerr << "truncated packet" << std::endl;
-		return;
+		return (-2);
 	}
 	if ((m.msg_flags & MSG_CTRUNC) != 0) {
 		std::cerr << "truncated control" << std::endl;
-		return;
+		return (-2);
 	}
 
 	bool stamped = false;
@@ -175,27 +170,23 @@ server_loop_step(int s)
 			continue;
 		switch (c->cmsg_type) {
 		case SCM_BINTIME:
-			p.srv_rcv.timer = T_BINTIME;
-			memcpy(&p.srv_rcv.t_b, CMSG_DATA(c),
-			    sizeof(p.srv_rcv.t_b));
+			ts->timer = T_BINTIME;
+			memcpy(&ts->t_b, CMSG_DATA(c), sizeof(ts->t_b));
 			stamped = true;
 			break;
 		case SCM_REALTIME:
-			p.srv_rcv.timer = T_REALTIME;
-			memcpy(&p.srv_rcv.t_s, CMSG_DATA(c),
-			    sizeof(p.srv_rcv.t_s));
+			ts->timer = T_REALTIME;
+			memcpy(&ts->t_s, CMSG_DATA(c), sizeof(ts->t_s));
 			stamped = true;
 			break;
 		case SCM_TIMESTAMP:
-			p.srv_rcv.timer = T_REALTIME_MICRO;
-			memcpy(&p.srv_rcv.t_v, CMSG_DATA(c),
-			    sizeof(p.srv_rcv.t_v));
+			ts->timer = T_REALTIME_MICRO;
+			memcpy(&ts->t_v, CMSG_DATA(c), sizeof(ts->t_v));
 			stamped = true;
 			break;
 		case SCM_MONOTONIC:
-			p.srv_rcv.timer = T_MONOTONIC;
-			memcpy(&p.srv_rcv.t_s, CMSG_DATA(c),
-			    sizeof(p.srv_rcv.t_s));
+			ts->timer = T_MONOTONIC;
+			memcpy(&ts->t_s, CMSG_DATA(c), sizeof(ts->t_s));
 			stamped = true;
 			break;
 		default:
@@ -204,27 +195,110 @@ server_loop_step(int s)
 	}
 	if (!stamped) {
 		std::cerr << "no timestamp control data" << std::endl;
-		return;
+		return (-2);
+	}
+	return (0);
+}
+
+static int
+send_packet(int s, struct sockaddr *sa, socklen_t sa_len, enum timer timer,
+    struct packet *p, struct ts *ts)
+{
+	struct timeval tv;
+	int error = gettimeofday(&tv, NULL);
+	if (error == -1)
+		return (-1);
+
+	switch (timer) {
+	case T_BINTIME:
+		// XXX
+		break;
+	case T_REALTIME_MICRO:
+		ts->timer = T_REALTIME_MICRO;
+		ts->t_v = tv;
+		break;
+	case T_REALTIME:
+		// XXX
+		break;
+	case T_MONOTONIC:
+		// XXX
+		break;
+	default:
+		break;
 	}
 
-	error = sendto(s, &p, sizeof(p), 0, &sa, sa.sa_len);
+	error = sendto(s, &p, sizeof(p), 0, sa, sa_len);
+	return (error);
+}
+
+static void
+server_loop_step(int s, enum timer timer)
+{
+	struct packet p;
+	struct sockaddr sa;
+
+	int error = recv_packet(s, &p, &sa, &p.srv_rcv);
 	if (error == -1) {
 		error = errno;
-		std::cerr << "sendto: " << strerror(error) << std::endl;
+		std::cerr << "recv_packet: " << strerror(error) << std::endl;
+		return;
+	} else if (error == -2) {
+		return;
+	}
+
+	error = send_packet(s, &sa, sizeof(sa), timer, &p, &p.srv_snd);
+	if (error == -1) {
+		error = errno;
+		std::cerr << "send_packet: " << strerror(error) << std::endl;
 		return;
 	}
 }
 
 static void
-server_loop(int s)
+client_send_loop_step(int s, enum timer timer, const struct addrinfo *cai)
 {
-	for (;;)
-		server_loop_step(s);
+	struct packet p{};
+
+	int error = send_packet(s, cai->ai_addr, cai->ai_addrlen, timer,
+	    &p, &p.clnt_snd);
+	if (error == -1) {
+		error = errno;
+		std::cerr << "send_packet: " << strerror(error) << std::endl;
+		return;
+	}
 }
 
 static void
-client_loop(int s)
+client_receive_loop_step(int s, enum timer timer)
 {
+	// XXX
+}
+
+static void
+server_loop(int s, enum timer timer)
+{
+	for (;;)
+		server_loop_step(s, timer);
+}
+
+static void
+client_send_loop(int s, enum timer timer, const struct addrinfo *cai)
+{
+	for (;;)
+		client_send_loop_step(s, timer, cai);
+}
+
+static void
+client_receive_loop(int s, enum timer timer)
+{
+	for (;;)
+		client_receive_loop_step(s, timer);
+}
+
+static void
+client_loop(int s, enum timer timer, const struct addrinfo *cai)
+{
+	// XXX
 }
 
 static void
@@ -296,10 +370,10 @@ main(int argc, char *argv[])
 	}
 
 	int res = 1;
+	const struct addrinfo *cai = ai;
 	switch (mode) {
 	case M_SERVER:
-		for (const struct addrinfo *cai = ai; cai != NULL;
-		    cai = cai->ai_next) {
+		for (; cai != NULL; cai = cai->ai_next) {
 			if (setup_server(cai, timer, s)) {
 				res = 0;
 				break;
@@ -307,8 +381,7 @@ main(int argc, char *argv[])
 		}
 		break;
 	case M_CLIENT:
-		for (const struct addrinfo *cai = ai; cai != NULL;
-		    cai = cai->ai_next) {
+		for (; cai != NULL; cai = cai->ai_next) {
 			if (setup_client(cai, timer, s)) {
 				res = 0;
 				break;
@@ -323,10 +396,10 @@ main(int argc, char *argv[])
 
 	switch (mode) {
 	case M_SERVER:
-		server_loop(s);
+		server_loop(s, timer);
 		break;
 	case M_CLIENT:
-		client_loop(s);
+		client_loop(s, timer, cai);
 		break;
 	default:
 		break;
