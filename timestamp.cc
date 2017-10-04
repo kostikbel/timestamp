@@ -274,6 +274,12 @@ client_send_loop_step(int s, enum timer timer)
 	}
 }
 
+static std::ostream& operator<<
+(std::ostream& stream, const struct ts& ts)
+{
+	return (stream);
+}
+
 static void
 client_receive_loop_step(int s)
 {
@@ -288,7 +294,12 @@ client_receive_loop_step(int s)
 	} else if (error == -2) {
 		return;
 	}
-	// XXX
+
+	std::cout << "Packet:" << std::endl;
+	std::cout << "\tclient sent :\t" << p.clnt_snd << std::endl;
+	std::cout << "\tserver recvd:\t" << p.srv_rcv << std::endl;
+	std::cout << "\tserver sent :\t" << p.srv_snd << std::endl;
+	std::cout << "\tclient recvd:\t" << p.clnt_rcv << std::endl;
 }
 
 static void
