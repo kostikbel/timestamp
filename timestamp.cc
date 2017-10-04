@@ -195,7 +195,7 @@ recv_packet(int s, struct packet *p, struct sockaddr *sa, struct ts *ts)
 		}
 	}
 	if (!stamped) {
-		std::cerr << "no timestamp control data" << std::endl;
+		std::cerr << "no timestamp in control data" << std::endl;
 		return (-2);
 	}
 	return (0);
