@@ -1,4 +1,4 @@
-CP=/usr/local/opt/gcc-7.2.0
+CP?=/usr/local/opt/gcc-7.2.0
 CC=$(CP)/bin/gcc
 CXX=$(CP)/bin/g++
 
