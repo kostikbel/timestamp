@@ -269,8 +269,19 @@ client_send_loop_step(int s, enum timer timer, const struct addrinfo *cai)
 }
 
 static void
-client_receive_loop_step(int s, enum timer timer)
+client_receive_loop_step(int s)
 {
+	struct packet p;
+	struct sockaddr sa;
+
+	int error = recv_packet(s, &p, &sa, &p.clnt_rcv);
+	if (error == -1) {
+		error = errno;
+		std::cerr << "recv_packet: " << strerror(error) << std::endl;
+		return;
+	} else if (error == -2) {
+		return;
+	}
 	// XXX
 }
 
@@ -289,15 +300,17 @@ client_send_loop(int s, enum timer timer, const struct addrinfo *cai)
 }
 
 static void
-client_receive_loop(int s, enum timer timer)
+client_receive_loop(int s)
 {
 	for (;;)
-		client_receive_loop_step(s, timer);
+		client_receive_loop_step(s);
 }
 
 static void
 client_loop(int s, enum timer timer, const struct addrinfo *cai)
 {
+	client_send_loop(s, timer, cai);
+	client_receive_loop(s);
 	// XXX
 }
 
