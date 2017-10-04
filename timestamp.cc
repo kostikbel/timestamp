@@ -51,6 +51,54 @@ struct packet {
 	struct ts clnt_rcv;
 };
 
+static const char *
+timer_name(int t)
+{
+	for (struct timer_descr& td : timer_descrs) {
+		if (t == td.t)
+			return (td.name);
+	}
+	return (NULL);
+}
+
+static std::ostream& operator<<
+(std::ostream& stream, const struct ts& ts)
+{
+	const char *t_name = timer_name(ts.timer);
+	if (t_name == NULL) {
+		stream << "Unknown (" << ts.timer << ")";
+	} else {
+		stream << t_name << "\t";
+		switch (ts.timer) {
+		case T_BINTIME:
+			stream << ts.t_b.sec << "\t" << ts.t_b.frac;
+			break;
+		case T_REALTIME_MICRO:
+		case T_REALTIME:
+			stream << ts.t_v.tv_sec << "\t" << ts.t_v.tv_usec;
+			break;
+		case T_MONOTONIC:
+			stream << ts.t_s.tv_sec << "\t" << ts.t_s.tv_nsec;
+			break;
+			break;
+		default:
+			break;
+		}
+	}
+	return (stream);
+}
+
+static std::ostream& operator<<
+(std::ostream& stream, const struct packet& p)
+{
+	stream << "Packet:" << std::endl;
+	stream << "\tclient sent :\t" << p.clnt_snd << std::endl;
+	stream << "\tserver recvd:\t" << p.srv_rcv << std::endl;
+	stream << "\tserver sent :\t" << p.srv_snd << std::endl;
+	stream << "\tclient recvd:\t" << p.clnt_rcv << std::endl;
+	return (stream);
+}
+
 static bool
 timestamp_sockopt(int s, enum timer t)
 {
@@ -274,43 +322,6 @@ client_send_loop_step(int s, enum timer timer)
 	}
 }
 
-static const char *
-timer_name(int t)
-{
-	for (struct timer_descr& td : timer_descrs) {
-		if (t == td.t)
-			return (td.name);
-	}
-	return (NULL);
-}
-
-static std::ostream& operator<<
-(std::ostream& stream, const struct ts& ts)
-{
-	const char *t_name = timer_name(ts.timer);
-	if (t_name == NULL) {
-		stream << "Unknown (" << ts.timer << ")";
-	} else {
-		stream << t_name << "\t";
-		switch (ts.timer) {
-		case T_BINTIME:
-			stream << ts.t_b.sec << "\t" << ts.t_b.frac;
-			break;
-		case T_REALTIME_MICRO:
-		case T_REALTIME:
-			stream << ts.t_v.tv_sec << "\t" << ts.t_v.tv_usec;
-			break;
-		case T_MONOTONIC:
-			stream << ts.t_s.tv_sec << "\t" << ts.t_s.tv_nsec;
-			break;
-			break;
-		default:
-			break;
-		}
-	}
-	return (stream);
-}
-
 static void
 client_receive_loop_step(int s)
 {
@@ -326,11 +337,7 @@ client_receive_loop_step(int s)
 		return;
 	}
 
-	std::cout << "Packet:" << std::endl;
-	std::cout << "\tclient sent :\t" << p.clnt_snd << std::endl;
-	std::cout << "\tserver recvd:\t" << p.srv_rcv << std::endl;
-	std::cout << "\tserver sent :\t" << p.srv_snd << std::endl;
-	std::cout << "\tclient recvd:\t" << p.clnt_rcv << std::endl;
+	std::cout << p;
 }
 
 static void
