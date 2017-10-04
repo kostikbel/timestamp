@@ -282,7 +282,7 @@ send_packet(int s, struct sockaddr *sa, socklen_t sa_len, enum timer timer,
 		break;
 	}
 
-	error = sendto(s, &p, sizeof(p), 0, sa, sa_len);
+	error = sendto(s, p, sizeof(*p), 0, sa, sa_len);
 	return (error);
 }
 
