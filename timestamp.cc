@@ -310,9 +310,8 @@ client_receive_loop(int s)
 static void
 client_loop(int s, enum timer timer, const struct addrinfo *cai)
 {
-	client_send_loop(s, timer, cai);
+	std::thread thread(client_send_loop, s, timer, cai);
 	client_receive_loop(s);
-	// XXX
 }
 
 static void
