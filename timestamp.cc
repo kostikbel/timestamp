@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <string.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -32,17 +33,20 @@ struct timer_descr {
 	{ "monotonic",		T_MONOTONIC },
 };
 
-union ts {
-	struct timespec ts;
-	struct timeval tv;
+struct ts {
+	int timer;
+	union {
+		struct timespec t_s;
+		struct timeval t_v;
+		struct bintime t_b;
+	};
 };
 
 struct packet {
-	int timer;
-	union ts clnt_snd;
-	union ts srv_rcv;
-	union ts srv_snd;
-	union ts clnt_rcv;
+	struct ts clnt_snd;
+	struct ts srv_rcv;
+	struct ts srv_snd;
+	struct ts clnt_rcv;
 };
 
 static bool
@@ -133,37 +137,89 @@ setup_client(const struct addrinfo *ai, enum timer timer, int& s)
 }
 
 static void
-server_loop(int s)
+server_loop_step(int s)
 {
-	int error;
+	struct msghdr m{};
+	struct iovec v[1];
+	struct packet p;
+	char control_buf[1024];
+	struct sockaddr sa;
 
-	for (;;) {
-		struct msghdr m{};
-		struct iovec v[1];
-		struct packet p;
-		char control_buf[1024];
+	v[0].iov_base = &p;
+	v[0].iov_len = sizeof(p);
+	m.msg_name = &sa;
+	m.msg_namelen = sizeof(sa);
+	m.msg_iov = v;
+	m.msg_iovlen = nitems(v);
+	m.msg_control = control_buf;
+	m.msg_controllen = sizeof(control_buf);
+	int error = recvmsg(s, &m, 0);
+	if (error == -1) {
+		error = errno;
+		std::cerr << "recvmsg: " << strerror(error) << std::endl;
+		return;
+	}
+	if ((m.msg_flags & MSG_TRUNC) != 0) {
+		std::cerr << "truncated packet" << std::endl;
+		return;
+	}
+	if ((m.msg_flags & MSG_CTRUNC) != 0) {
+		std::cerr << "truncated control" << std::endl;
+		return;
+	}
 
-		v[0].iov_base = &p;
-		v[0].iov_len = sizeof(p);
-		m.msg_iov = v;
-		m.msg_iovlen = nitems(v);
-		m.msg_control = control_buf;
-		m.msg_controllen = sizeof(control_buf);
-		error = recvmsg(s, &m, 0);
-		if (error == -1) {
-			error = errno;
-			std::cerr << "recvmsg: " << strerror(error) << std::endl;
+	bool stamped = false;
+	for (struct cmsghdr *c = CMSG_FIRSTHDR(&m); c != NULL;
+	     c = CMSG_NXTHDR(&m, c)) {
+		if (c->cmsg_level != SOL_SOCKET)
 			continue;
-		}
-		if ((m.msg_flags & MSG_TRUNC) != 0) {
-			std::cerr << "truncated packet" << std::endl;
-			continue;
-		}
-		if ((m.msg_flags & MSG_CTRUNC) != 0) {
-			std::cerr << "truncated control" << std::endl;
-			continue;
+		switch (c->cmsg_type) {
+		case SCM_BINTIME:
+			p.srv_rcv.timer = T_BINTIME;
+			memcpy(&p.srv_rcv.t_b, CMSG_DATA(c),
+			    sizeof(p.srv_rcv.t_b));
+			stamped = true;
+			break;
+		case SCM_REALTIME:
+			p.srv_rcv.timer = T_REALTIME;
+			memcpy(&p.srv_rcv.t_s, CMSG_DATA(c),
+			    sizeof(p.srv_rcv.t_s));
+			stamped = true;
+			break;
+		case SCM_TIMESTAMP:
+			p.srv_rcv.timer = T_REALTIME_MICRO;
+			memcpy(&p.srv_rcv.t_v, CMSG_DATA(c),
+			    sizeof(p.srv_rcv.t_v));
+			stamped = true;
+			break;
+		case SCM_MONOTONIC:
+			p.srv_rcv.timer = T_MONOTONIC;
+			memcpy(&p.srv_rcv.t_s, CMSG_DATA(c),
+			    sizeof(p.srv_rcv.t_s));
+			stamped = true;
+			break;
+		default:
+			break;
 		}
 	}
+	if (!stamped) {
+		std::cerr << "no timestamp control data" << std::endl;
+		return;
+	}
+
+	error = sendto(s, &p, sizeof(p), 0, &sa, sa.sa_len);
+	if (error == -1) {
+		error = errno;
+		std::cerr << "sendto: " << strerror(error) << std::endl;
+		return;
+	}
+}
+
+static void
+server_loop(int s)
+{
+	for (;;)
+		server_loop_step(s);
 }
 
 static void
