@@ -2,6 +2,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -298,10 +299,17 @@ server_loop(int s, enum timer timer)
 }
 
 static void
-client_send_loop(int s, enum timer timer)
+client_send_loop(int s, enum timer timer, int delay)
 {
-	for (;;)
+	for (;;) {
 		client_send_loop_step(s, timer);
+		if (delay != 0) {
+			struct timespec ts;
+			ts.tv_sec = delay / 1000;
+			ts.tv_nsec = (delay % 1000) * 1000000;
+			nanosleep(&ts, NULL);
+		}
+	}
 }
 
 static void
@@ -312,16 +320,16 @@ client_receive_loop(int s)
 }
 
 static void
-client_loop(int s, enum timer timer)
+client_loop(int s, enum timer timer, int delay)
 {
-	std::thread thread(client_send_loop, s, timer);
+	std::thread thread(client_send_loop, s, timer, delay);
 	client_receive_loop(s);
 }
 
 static void
 usage()
 {
-	std::cerr << "Usage: timestamp -c|-s [-h address] [-p port] [-t timer]\n";
+	std::cerr << "Usage: timestamp -c|-s -t timer [-h address] [-p port] [-d delay(ms)]\n";
 	exit(1);
 }
 
@@ -330,12 +338,15 @@ main(int argc, char *argv[])
 {
 	const char *hostname = NULL, *servname = NULL;
 	struct addrinfo *ai = NULL;
-	int c, error, s;
+	int c, delay = 0, error, s;
 	enum mode mode = M_UNKNOWN;
 	enum timer timer = T_UNKNOWN;
 
-	while ((c = getopt(argc, argv, "ch:t:sp:")) != -1) {
+	while ((c = getopt(argc, argv, "cd:h:t:sp:")) != -1) {
 		switch (c) {
+		case 'd':
+			delay = atoi(optarg);
+			break;
 		case 'c':
 			mode = M_CLIENT;
 			break;
@@ -418,7 +429,7 @@ main(int argc, char *argv[])
 		server_loop(s, timer);
 		break;
 	case M_CLIENT:
-		client_loop(s, timer);
+		client_loop(s, timer, delay);
 		break;
 	default:
 		break;
