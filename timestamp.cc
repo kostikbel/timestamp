@@ -155,6 +155,14 @@ server_loop(int s)
 			std::cerr << "recvmsg: " << strerror(error) << std::endl;
 			continue;
 		}
+		if ((m.msg_flags & MSG_TRUNC) != 0) {
+			std::cerr << "truncated packet" << std::endl;
+			continue;
+		}
+		if ((m.msg_flags & MSG_CTRUNC) != 0) {
+			std::cerr << "truncated control" << std::endl;
+			continue;
+		}
 	}
 }
 
