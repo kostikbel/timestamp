@@ -274,9 +274,40 @@ client_send_loop_step(int s, enum timer timer)
 	}
 }
 
+static const char *
+timer_name(int t)
+{
+	for (struct timer_descr& td : timer_descrs) {
+		if (t == td.t)
+			return (td.name);
+	}
+	return (NULL);
+}
+
 static std::ostream& operator<<
 (std::ostream& stream, const struct ts& ts)
 {
+	const char *t_name = timer_name(ts.timer);
+	if (t_name == NULL) {
+		stream << "Unknown (" << ts.timer << ")";
+	} else {
+		stream << t_name << "\t";
+		switch (ts.timer) {
+		case T_BINTIME:
+			stream << ts.t_b.sec << "\t" << ts.t_b.frac;
+			break;
+		case T_REALTIME_MICRO:
+		case T_REALTIME:
+			stream << ts.t_v.tv_sec << "\t" << ts.t_v.tv_usec;
+			break;
+		case T_MONOTONIC:
+			stream << ts.t_s.tv_sec << "\t" << ts.t_s.tv_nsec;
+			break;
+			break;
+		default:
+			break;
+		}
+	}
 	return (stream);
 }
 
