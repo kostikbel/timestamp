@@ -210,7 +210,7 @@ recv_packet(int s, struct packet *p, struct sockaddr *sa, struct ts *ts)
 	v[0].iov_base = p;
 	v[0].iov_len = sizeof(*p);
 	m.msg_name = sa;
-	m.msg_namelen = sizeof(*sa);
+	m.msg_namelen = sa->sa_len;
 	m.msg_iov = v;
 	m.msg_iovlen = nitems(v);
 	m.msg_control = control_buf;
@@ -308,9 +308,13 @@ static void
 server_loop_step(int s, enum timer timer)
 {
 	struct packet p;
-	struct sockaddr sa;
+	struct sockaddr *sa;
+	char sa_buf[SOCK_MAXADDRLEN];
 
-	int error = recv_packet(s, &p, &sa, &p.srv_rcv);
+	bzero(sa_buf, sizeof(sa_buf));
+	sa = (struct sockaddr *)sa_buf;
+	sa->sa_len = sizeof(sa_buf);
+	int error = recv_packet(s, &p, sa, &p.srv_rcv);
 	if (error == -1) {
 		error = errno;
 		std::cerr << "recv_packet: " << strerror(error) << std::endl;
@@ -319,7 +323,7 @@ server_loop_step(int s, enum timer timer)
 		return;
 	}
 
-	error = send_packet(s, &sa, sizeof(sa), timer, &p, &p.srv_snd);
+	error = send_packet(s, sa, sa->sa_len, timer, &p, &p.srv_snd);
 	if (error == -1) {
 		error = errno;
 		std::cerr << "send_packet: " << strerror(error) << std::endl;
