@@ -63,7 +63,8 @@ timer_name(int t)
 	return (NULL);
 }
 
-static std::string decode_sti_flags(const struct sock_timestamp_info& sti)
+static std::string
+decode_sti_flags(const struct sock_timestamp_info& sti)
 {
 	std::string res;
 
