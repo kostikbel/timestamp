@@ -368,16 +368,16 @@ client_receive_loop_step(int s)
 }
 
 static void
-server_loop(int s, enum timer timer)
+server_loop(int s, enum timer timer, int count)
 {
-	for (;;)
+	for (int i = 0; count == -1 || i < count; i++)
 		server_loop_step(s, timer);
 }
 
 static void
-client_send_loop(int s, enum timer timer, int delay)
+client_send_loop(int s, enum timer timer, int delay, int count)
 {
-	for (;;) {
+	for (int i = 0; count == -1 || i < count; i++) {
 		client_send_loop_step(s, timer);
 		if (delay != 0) {
 			struct timespec ts;
@@ -396,16 +396,17 @@ client_receive_loop(int s)
 }
 
 static void
-client_loop(int s, enum timer timer, int delay)
+client_loop(int s, enum timer timer, int delay, int count)
 {
-	std::thread thread(client_send_loop, s, timer, delay);
+	std::thread thread(client_send_loop, s, timer, delay, count);
 	client_receive_loop(s);
 }
 
 static void
 usage()
 {
-	std::cerr << "Usage: timestamp -c|-s -t timer [-h address] [-p port] [-d delay(ms)]\n";
+	std::cerr << "Usage: timestamp -c|-s -t timer [-h address] "
+	    "[-p port] [-d delay(ms)] [-a packet count]\n";
 	exit(1);
 }
 
@@ -414,12 +415,15 @@ main(int argc, char *argv[])
 {
 	const char *hostname = NULL, *servname = NULL;
 	struct addrinfo *ai = NULL;
-	int c, delay = 0, error, s;
+	int c, count = -1, delay = 0, error, s;
 	enum mode mode = M_UNKNOWN;
 	enum timer timer = T_UNKNOWN;
 
-	while ((c = getopt(argc, argv, "cd:h:t:sp:")) != -1) {
+	while ((c = getopt(argc, argv, "a:cd:h:t:sp:")) != -1) {
 		switch (c) {
+		case 'a':
+			count = atoi(optarg);
+			break;
 		case 'd':
 			delay = atoi(optarg);
 			break;
@@ -502,10 +506,10 @@ main(int argc, char *argv[])
 
 	switch (mode) {
 	case M_SERVER:
-		server_loop(s, timer);
+		server_loop(s, timer, count);
 		break;
 	case M_CLIENT:
-		client_loop(s, timer, delay);
+		client_loop(s, timer, delay, count);
 		break;
 	default:
 		break;
