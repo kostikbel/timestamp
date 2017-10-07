@@ -47,6 +47,7 @@ struct ts {
 };
 
 struct packet {
+	uint32_t id;
 	struct ts clnt_snd;
 	struct ts srv_rcv;
 	struct ts srv_snd;
@@ -106,7 +107,7 @@ static std::ostream& operator<<
 static std::ostream& operator<<
 (std::ostream& stream, const struct packet& p)
 {
-	stream << "Packet:" << std::endl;
+	stream << "Packet " << p.id << ":" << std::endl;
 	stream << "\tclient sent :\t" << p.clnt_snd << std::endl;
 	stream << "\tserver recvd:\t" << p.srv_rcv << std::endl;
 	stream << "\tserver sent :\t" << p.srv_snd << std::endl;
@@ -332,11 +333,14 @@ server_loop_step(int s, enum timer timer)
 	}
 }
 
+static uint32_t packet_id;
+
 static void
 client_send_loop_step(int s, enum timer timer)
 {
 	struct packet p{};
 
+	p.id = ++packet_id;
 	int error = send_packet(s, NULL, 0, timer, &p, &p.clnt_snd);
 	if (error == -1) {
 		error = errno;
