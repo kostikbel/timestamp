@@ -19,11 +19,11 @@ enum mode {
 };
 
 enum timer {
-	T_UNKNOWN,
-	T_BINTIME,
-	T_REALTIME_MICRO,
-	T_REALTIME,
-	T_MONOTONIC,
+	T_UNKNOWN =		10,
+	T_BINTIME =		11,
+	T_REALTIME_MICRO =	12,
+	T_REALTIME =		13,
+	T_MONOTONIC =		14,
 };
 
 struct timer_descr {
