@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2017 Mellanox Technologies
+ * This software was developed by Konstantin Belousov <konstantinb@mellanox.com>
+ */
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
