@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 
 #include <iostream>
+#include <string>
 #include <thread>
 
 enum mode {
@@ -37,6 +38,7 @@ struct timer_descr {
 
 struct ts {
 	int timer;
+	struct sock_timestamp_info sti;
 	union {
 		struct timespec t_s;
 		struct timeval t_v;
@@ -61,9 +63,21 @@ timer_name(int t)
 	return (NULL);
 }
 
+static std::string decode_sti_flags(const struct sock_timestamp_info& sti)
+{
+	std::string res;
+
+	if ((sti.st_info_flags & ST_INFO_HW) != 0)
+		res += "HW";
+	if ((sti.st_info_flags & ST_INFO_HW_HPREC) != 0)
+		res += ",PREC";
+	return res;
+}
+
 static std::ostream& operator<<
 (std::ostream& stream, const struct ts& ts)
 {
+	stream << "<" << decode_sti_flags(ts.sti) << "> ";
 	const char *t_name = timer_name(ts.timer);
 	if (t_name == NULL) {
 		stream << "Unknown (" << ts.timer << ")";
@@ -213,6 +227,7 @@ recv_packet(int s, struct packet *p, struct sockaddr *sa, struct ts *ts)
 		return (-2);
 	}
 
+	memset(&ts->sti, 0, sizeof(ts->sti));
 	bool stamped = false;
 	for (struct cmsghdr *c = CMSG_FIRSTHDR(&m); c != NULL;
 	     c = CMSG_NXTHDR(&m, c)) {
@@ -238,6 +253,9 @@ recv_packet(int s, struct packet *p, struct sockaddr *sa, struct ts *ts)
 			ts->timer = T_MONOTONIC;
 			memcpy(&ts->t_s, CMSG_DATA(c), sizeof(ts->t_s));
 			stamped = true;
+			break;
+		case SCM_TIME_INFO:
+			ts->sti = *(struct sock_timestamp_info *)CMSG_DATA(c);
 			break;
 		default:
 			break;
