@@ -353,9 +353,13 @@ static void
 client_receive_loop_step(int s)
 {
 	struct packet p;
-	struct sockaddr sa;
+	struct sockaddr *sa;
+	char sa_buf[SOCK_MAXADDRLEN];
 
-	int error = recv_packet(s, &p, &sa, &p.clnt_rcv);
+	bzero(sa_buf, sizeof(sa_buf));
+	sa = (struct sockaddr *)sa_buf;
+	sa->sa_len = sizeof(sa_buf);
+	int error = recv_packet(s, &p, sa, &p.clnt_rcv);
 	if (error == -1) {
 		error = errno;
 		std::cerr << "recv_packet: " << strerror(error) << std::endl;
