@@ -4,4 +4,3 @@ CXXFLAGS=-std=c++17
 MAN=
 
 .include <bsd.prog.mk>
-
