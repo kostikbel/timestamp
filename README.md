@@ -11,8 +11,7 @@ Usage:
 Options:
 ```
 	-t timestampt format, use -t help to see possible values
-	-h address to listen to (server mode), to sends packets to
-	   (client mode)
+	-h address to listen to (server mode), to sends packets to (client mode)
 	-p port
 	-a count -- process specified number of packets
 	-d ms -- client mode, delay between sends
