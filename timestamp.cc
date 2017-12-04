@@ -398,9 +398,9 @@ client_send_loop(int s, enum timer timer, int delay, int count)
 }
 
 static void
-client_receive_loop(int s)
+client_receive_loop(int s, int count)
 {
-	for (;;)
+	for (int i = 0; count == -1 || i < count; i++)
 		client_receive_loop_step(s);
 }
 
@@ -408,7 +408,8 @@ static void
 client_loop(int s, enum timer timer, int delay, int count)
 {
 	std::thread thread(client_send_loop, s, timer, delay, count);
-	client_receive_loop(s);
+	client_receive_loop(s, count);
+	thread.join();
 }
 
 static void
