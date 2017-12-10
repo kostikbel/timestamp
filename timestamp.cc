@@ -201,7 +201,6 @@ setup_server(const struct addrinfo *ai, enum timer timer, int& s)
 	}
 	if (!timestamp_sockopt(s, timer))
 		return (false);
-	
 	return (true);
 }
 
@@ -224,7 +223,6 @@ setup_client(const struct addrinfo *ai, enum timer timer, int& s)
 	}
 	if (!timestamp_sockopt(s, timer))
 		return (false);
-	
 	return (true);
 }
 
@@ -322,7 +320,6 @@ send_packet(int s, struct sockaddr *sa, socklen_t sa_len, enum timer timer,
 		// XXX
 		ts->timer = T_MONOTONIC;
 		TIMEVAL_TO_TIMESPEC(&tv, &ts->t_s);
-		break;
 		break;
 	default:
 		break;
@@ -478,9 +475,11 @@ main(int argc, char *argv[])
 				}
 			}
 			if (timer == T_UNKNOWN) {
-				std::cerr << "Valid timer names are:" << std::endl;
+				std::cerr << "Valid timer names are:" <<
+				    std::endl;
 				for (struct timer_descr& td : timer_descrs)
-					std::cerr << "\t" << td.name << std::endl;
+					std::cerr << "\t" << td.name <<
+					    std::endl;
 				exit(1);
 			}
 			break;
